@@ -1,0 +1,136 @@
+-- Copyright (c) 2022 ASX Operations Pty Ltd. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Synfini.Nft where
+
+import DA.Assert ((===))
+import qualified DA.Optional as O
+import DA.Set (Set)
+import qualified DA.Set as Set
+
+-- ^ Unique identifier for a particular collection of Nfts. This is roughly analgous to an ERC-721 contract address.
+data CollectionId = CollectionId
+  with
+    signatories : Set Party -- ^ Parties whos authority is required in order to mint Nfts within the collection.
+    value : Text -- ^ Uniquely identifying label.
+  deriving (Show, Eq, Ord)
+
+-- ^ Unique identifier of a particular Nft within a collection.
+data TokenId = TokenId
+  with
+    signatories : Set Party -- ^ Parties whos authority is required in order to mint the Nft. The isser will usually be
+    -- included in this set, but it is flexible depending on the usecase.
+    value : Text -- ^ Uniquely identifying label.
+  deriving (Show, Eq, Ord)
+
+-- ^ Unique identifier of an Nft wallet.
+data WalletId = WalletId
+  with
+    signatories : Set Party -- ^ Parties who authority is required to send an Nft to a particular wallet. Can include
+    -- the wallet owner and/or a custodian, depending on the application. 
+    value : Text -- ^ Uniquely identifying label.
+  deriving (Show, Eq, Ord)
+
+-- ^ An nft wallet.
+data Wallet = Wallet
+  with
+    id : WalletId -- ^ Unique identifier of the wallet.
+    provider : Party -- ^ Wallet provider, such as a custodian or registry operator. Can be the same as 'owner' for a
+    -- self-custody model.
+    owner : Party -- ^ Wallet owner.
+  deriving (Show, Eq)
+
+-- ^ Template used to represent ownership of a particular Nft within a collection.
+template Nft
+  with
+    collectionId : CollectionId -- ^ Unique identifier of the collection which the Nft is part of.
+    tokenId : TokenId -- ^ Unique identifier of the Nft within the collection.
+    issuer : Party -- ^ Nft issuer. Examples could include an artist, patent inventor or organiser issuing tickets to
+      -- an event.
+    wallet : Wallet -- ^ Wallet holding this Nft.
+    observers : Set Party -- ^ Contract observers.
+  where
+    signatory collectionId.signatories, tokenId.signatories, wallet.id.signatories
+    observer issuer, wallet.owner, wallet.provider, observers
+
+    key (collectionId, tokenId) : (CollectionId, TokenId)
+    maintainer key._1.signatories
+
+    choice Nft_SetObservers : ContractId Nft
+      with
+        newObservers : Set Party
+      controller wallet.owner
+      do
+        create this with observers = newObservers
+
+-- | Rule to allow the owner of a particular NFT to transfer it, but only if the recipient is willing to accept it
+-- via an 'NftAcquisitionRule'.
+template NftTransferRule
+  with
+    collectionId : CollectionId -- ^ Unique identifier of the collection which the Nft is part of.
+    tokenId : TokenId -- ^ Unique identifier of the Nft within the collection.
+    issuer : Party -- ^ Nft issuer. 
+    wallet : Wallet -- ^ Wallet holding this Nft.
+    observers : Set Party -- ^ Contract observers.
+  where
+    signatory collectionId.signatories, tokenId.signatories, wallet.id.signatories
+    observer issuer, wallet.owner, wallet.provider, observers
+
+    key (collectionId, tokenId) : (CollectionId, TokenId)
+    maintainer key._1.signatories
+
+    choice NftTransferRule_SetObservers : ContractId NftTransferRule
+      with
+        newObservers : Set Party
+      controller wallet.owner
+      do
+        create this with observers = newObservers
+
+    -- | Transfer the Nft to another wallet.
+    choice NftTransferRule_Transfer : (ContractId Nft, ContractId NftTransferRule)
+      with
+        recipientWallet : Wallet -- ^ Wallet to transfer the Nft to.
+      controller wallet.owner
+      do
+        (nftCid, nft) <- fetchByKey @Nft (collectionId, tokenId)
+        nft.wallet === wallet
+        archive nftCid
+        let newNft = nft with wallet = recipientWallet
+        newNftCid <- exerciseByKey @NftAcquisitionRule wallet.id NftAcquisitionRule_Acquire with ctrl = wallet.owner, nft = newNft
+        newNftTransferRuleCid <- create this with wallet = recipientWallet
+        pure (newNftCid, newNftTransferRuleCid)
+
+-- | Rule to allow a wallet to receive NFTs from other parties. This may be a long-lived contract or may be created and
+-- archived within a single transaction, such as in a "propose-accept" workflow.
+template NftAcquisitionRule
+  with
+    wallet : Wallet -- ^ Wallet which this rule applies to.
+    senderWhiteList : Optional (Set Party) -- ^ If provided, contains all parites permitted to send NFTs to this wallet.
+    -- No restrictions on transfers apply if the white list is not provided.
+    observers : Set Party -- ^ Contract observers.
+  where
+    signatory wallet.id.signatories
+    observer wallet.owner, wallet.provider, O.fromOptional Set.empty senderWhiteList, observers
+
+    key wallet.id : WalletId
+    maintainer key.signatories
+
+    -- | Provide an Nft to the wallet.
+    nonconsuming choice NftAcquisitionRule_Acquire : ContractId Nft
+      with
+        ctrl : Party -- ^ Choice controller.
+        nft : Nft -- ^ Nft to be provided.
+      controller ctrl, nft.collectionId.signatories, nft.tokenId.signatories
+      do
+        assertMsg
+          "Controller must be authorized to send nft"
+          (O.optional True (Set.member ctrl) senderWhiteList)
+        nft.wallet === wallet
+        create nft
+
+    choice NftAcquisitionRule_SetObservers : ContractId NftAcquisitionRule
+      with
+        newObservers : Set Party
+      controller wallet.owner
+      do
+        create this with observers = newObservers

@@ -1,0 +1,80 @@
+-- Copyright (c) 2022 ASX Operations Pty Ltd. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Synfini.Nft.Metadata.Test where
+
+import DA.Assert ((===))
+import qualified DA.Set as Set
+import Daml.Script 
+import Synfini.Nft
+import Synfini.Nft.Metadata
+import Synfini.Nft.TestUtils
+
+test_NftCollectionSummary_properties : Script ()
+test_NftCollectionSummary_properties = withParties $ \parties -> do
+  let collectionId = CollectionId with
+        value = ""
+        signatories = Set.fromList [parties.alice, parties.bob]
+  let nftCollectionSummary = NftCollectionSummary with
+        collectionId
+        name = "name"
+        symbol = "symbol"
+        observers = Set.fromList [parties.charlie, parties.david]
+  Set.fromList (signatory nftCollectionSummary) === Set.fromList [parties.alice, parties.bob]
+  Set.fromList (observer nftCollectionSummary) === Set.fromList [parties.charlie, parties.david]
+  key nftCollectionSummary === collectionId
+
+test_NftUri_properties : Script ()
+test_NftUri_properties = withParties $ \parties -> do
+  let collectionId = CollectionId with
+        value = ""
+        signatories = Set.singleton parties.alice
+  let tokenId = TokenId with
+        value = ""
+        signatories = Set.singleton parties.bob
+  let nftUri = NftUri with
+        collectionId
+        tokenId
+        issuer = parties.charlie
+        uri = "http://xyz"
+        observers = Set.singleton parties.david
+  Set.fromList (signatory nftUri) === Set.fromList [parties.alice, parties.bob]
+  Set.fromList (observer nftUri) === Set.fromList [parties.charlie, parties.david]
+  key nftUri === (collectionId, tokenId)
+
+test_NftSummary_properties : Script ()
+test_NftSummary_properties = withParties $ \parties -> do
+  let collectionId = CollectionId with
+        value = ""
+        signatories = Set.singleton parties.alice
+  let tokenId = TokenId with
+        value = ""
+        signatories = Set.singleton parties.bob
+  let nftSummary = NftSummary with
+        collectionId
+        tokenId
+        issuer = parties.charlie
+        name = "name"
+        description = "description"
+        observers = Set.singleton parties.david
+  Set.fromList (signatory nftSummary) === Set.fromList [parties.alice, parties.bob]
+  Set.fromList (observer nftSummary) === Set.fromList [parties.charlie, parties.david]
+  key nftSummary === (collectionId, tokenId)
+
+test_NftImage_properties : Script ()
+test_NftImage_properties = withParties $ \parties -> do
+  let collectionId = CollectionId with
+        value = ""
+        signatories = Set.singleton parties.alice
+  let tokenId = TokenId with
+        value = ""
+        signatories = Set.singleton parties.bob
+  let nftImage = NftImage with
+        collectionId
+        tokenId
+        issuer = parties.charlie
+        image = "http://xyz"
+        observers = Set.singleton parties.david
+  Set.fromList (signatory nftImage) === Set.fromList [parties.alice, parties.bob]
+  Set.fromList (observer nftImage) === Set.fromList [parties.charlie, parties.david]
+  key nftImage === (collectionId, tokenId)
