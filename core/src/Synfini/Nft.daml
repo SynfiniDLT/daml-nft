@@ -42,14 +42,14 @@ template NftCreatorRole
     key (operator, creator) : (Party, Party)
     maintainer key._1
 
-template NFTMintRequest
+template NftMintRequest
   with
     nft : Nft
   where
     signatory Set.delete nft.operator nft.id.signatories
     observer nft.operator
 
-    choice NFTMintRequest_Mint : ContractId Nft
+    choice NftMintRequest_Mint : ContractId Nft
       controller nft.operator
       do
         fetchByKey @NftCreatorRole (nft.operator, nft.creator)
@@ -58,7 +58,6 @@ template NFTMintRequest
 template NftTransferRule
   with
     nftId : NftId
-    creator : Party
     owner : Party
     operator : Party
     observers : Set Party
@@ -75,7 +74,6 @@ template NftTransferRule
       controller owner
       do
         (_, nft) <- fetchByKey @Nft nftId
-        nft.creator === creator
         nft.owner === owner
         nft.operator === operator
         exerciseByKey @NftAcquisitionRule (operator, recipient) NftAcquisitionRule_Acquire with ctrl = owner, nftId
