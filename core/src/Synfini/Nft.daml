@@ -1,0 +1,106 @@
+-- Copyright (c) 2022 ASX Operations Pty Ltd. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Synfini.Nft where
+
+import DA.Assert ((===))
+import DA.Set (Set)
+import qualified DA.Set as Set
+
+data NftId = NftId
+  with
+    signatories : Set Party
+    hash : Text
+  deriving (Show, Eq)
+
+template Nft
+  with
+    id : NftId
+    creator : Party
+    owner : Party
+    operator : Party
+    name : Text
+    decription : Text
+    uri : Text
+    observers : Set Party
+  where
+    signatory id.signatories
+    observer observers
+
+    key id : NftId
+    maintainer key.signatories
+
+template NftCreatorRole
+  with
+    creator : Party
+    operator : Party
+    observers : Set Party
+  where
+    signatory operator
+    observer creator, observers
+
+    key (operator, creator) : (Party, Party)
+    maintainer key._1
+
+template NFTMintRequest
+  with
+    nft : Nft
+  where
+    signatory Set.delete nft.operator nft.id.signatories
+    observer nft.operator
+
+    choice NFTMintRequest_Mint : ContractId Nft
+      controller nft.operator
+      do
+        fetchByKey @NftCreatorRole (nft.operator, nft.creator)
+        create nft
+
+template NftTransferRule
+  with
+    nftId : NftId
+    creator : Party
+    owner : Party
+    operator : Party
+    observers : Set Party
+  where
+    signatory nftId.signatories
+    observer observers
+
+    key nftId : NftId
+    maintainer key.signatories
+
+    choice NftTransferRule_Transfer : ContractId Nft
+      with
+        recipient : Party
+      controller owner
+      do
+        (_, nft) <- fetchByKey @Nft nftId
+        nft.creator === creator
+        nft.owner === owner
+        nft.operator === operator
+        exerciseByKey @NftAcquisitionRule (operator, recipient) NftAcquisitionRule_Acquire with ctrl = owner, nftId
+
+template NftAcquisitionRule
+  with
+    party : Party
+    operator : Party
+    ctrls : Set Party
+    observers : Set Party
+  where
+    signatory operator
+    observer ctrls, observers
+
+    key (operator, party) : (Party, Party)
+    maintainer key._1
+
+    nonconsuming choice NftAcquisitionRule_Acquire : ContractId Nft
+      with
+        ctrl : Party
+        nftId : NftId
+      controller ctrl, nftId.signatories
+      do
+        assertMsg "Controller must be authorized to send nft" $ ctrl `Set.member` ctrls
+        (nftCid, nft) <- fetchByKey @Nft nftId
+        nft.operator === operator
+        archive nftCid
+        create nft with owner = party
