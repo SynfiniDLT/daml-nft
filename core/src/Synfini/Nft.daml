@@ -20,7 +20,7 @@ template Nft
     owner : Party
     operator : Party
     name : Text
-    decription : Text
+    description : Text
     uri : Text
     observers : Set Party
   where
