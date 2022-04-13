@@ -85,7 +85,7 @@ template NftAcquisitionRule
     ctrls : Set Party
     observers : Set Party
   where
-    signatory operator
+    signatory operator, party
     observer ctrls, observers
 
     key (operator, party) : (Party, Party)
@@ -101,4 +101,6 @@ template NftAcquisitionRule
         (nftCid, nft) <- fetchByKey @Nft nftId
         nft.operator === operator
         archive nftCid
-        create nft with owner = party
+        create nft with
+          id.signatories = Set.insert party nft.id.signatories
+          owner = party
