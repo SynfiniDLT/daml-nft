@@ -76,7 +76,14 @@ template NftTransferRule
         (_, nft) <- fetchByKey @Nft nftId
         nft.owner === owner
         nft.operator === operator
-        exerciseByKey @NftAcquisitionRule (operator, recipient) NftAcquisitionRule_Acquire with ctrl = owner, nftId
+        newNftCid <- exerciseByKey @NftAcquisitionRule (operator, recipient) NftAcquisitionRule_Acquire with ctrl = owner, nftId
+        newNft <- fetch newNftCid
+        create NftTransferRule with
+          nftId = newNft.id
+          owner = newNft.owner
+          operator = newNft.operator
+          observers = Set.insert recipient observers
+        pure newNftCid
 
 template NftAcquisitionRule
   with
