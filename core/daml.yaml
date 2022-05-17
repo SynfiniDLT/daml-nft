@@ -3,7 +3,7 @@
 
 sdk-version: 1.17.1
 name: nft-core
-version: 0.1.0
+version: 0.1.1
 source: src
 dependencies:
 - daml-prim
