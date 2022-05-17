@@ -7,107 +7,118 @@ import DA.Assert ((===))
 import DA.Set (Set)
 import qualified DA.Set as Set
 
-data NftId = NftId
+data TokenId = TokenId
   with
     signatories : Set Party
-    hash : Text
+    value : Text
+  deriving (Show, Eq)
+
+data WalletId = WalletId
+  with
+    signatories : Set Party
+    value : Text
+  deriving (Show, Eq)
+
+data Wallet = Wallet
+  with
+    id : WalletId
+    provider : Party
+    owner : Party
   deriving (Show, Eq)
 
 template Nft
   with
-    id : NftId
-    creator : Party
-    owner : Party
-    operator : Party
+    id : TokenId
+    issuer : Party
+    wallet : Wallet
+    observers : Set Party
+    url : Optional Text
+    -- Are these needed to be stored on ledger?
     name : Text
     description : Text
-    uri : Text
-    observers : Set Party
   where
     signatory id.signatories
     observer observers
 
-    key id : NftId
+    key id : TokenId
     maintainer key.signatories
 
-template NftCreatorRole
+-- template NftCreatorRole
+--   with
+--     creator : Party
+--     operator : Party
+--     observers : Set Party
+--   where
+--     signatory operator
+--     observer creator, observers
+
+--     key (operator, creator) : (Party, Party)
+--     maintainer key._1
+
+-- template NftMintRequest
+--   with
+--     nft : Nft
+--   where
+--     signatory Set.delete nft.operator nft.id.signatories
+--     observer nft.operator
+
+--     choice NftMintRequest_Mint : ContractId Nft
+--       controller nft.operator
+--       do
+--         fetchByKey @NftCreatorRole (nft.operator, nft.creator)
+--         create nft
+
+template WalletControlledTransferRule
   with
-    creator : Party
-    operator : Party
-    observers : Set Party
-  where
-    signatory operator
-    observer creator, observers
-
-    key (operator, creator) : (Party, Party)
-    maintainer key._1
-
-template NftMintRequest
-  with
-    nft : Nft
-  where
-    signatory Set.delete nft.operator nft.id.signatories
-    observer nft.operator
-
-    choice NftMintRequest_Mint : ContractId Nft
-      controller nft.operator
-      do
-        fetchByKey @NftCreatorRole (nft.operator, nft.creator)
-        create nft
-
-template NftTransferRule
-  with
-    nftId : NftId
+    tokenId : TokenId
     owner : Party
-    operator : Party
     observers : Set Party
   where
-    signatory nftId.signatories
+    signatory tokenId.signatories
     observer observers
 
-    key nftId : NftId
+    key tokenId : TokenId
     maintainer key.signatories
 
-    choice NftTransferRule_Transfer : ContractId Nft
+    choice NftTransferRule_Transfer : (ContractId Nft, ContractId WalletControlledTransferRule)
       with
-        recipient : Party
+        wallet : Wallet
       controller owner
       do
-        (_, nft) <- fetchByKey @Nft nftId
-        nft.owner === owner
-        nft.operator === operator
-        newNftCid <- exerciseByKey @NftAcquisitionRule (operator, recipient) NftAcquisitionRule_Acquire with ctrl = owner, nftId
-        newNft <- fetch newNftCid
-        create NftTransferRule with
-          nftId = newNft.id
-          owner = newNft.owner
-          operator = newNft.operator
-          observers = Set.insert recipient observers
-        pure newNftCid
+        (nftCid, nft) <- fetchByKey @Nft tokenId
+        nft.wallet.owner === owner
+        archive nftCid
+        let newSignatories = Set.difference
+              (Set.union wallet.id.signatories nft.id.signatories)
+              (Set.difference nft.wallet.id.signatories wallet.id.signatories)
+        let newNft = nft with
+              id.signatories = newSignatories
+              wallet
+        exerciseByKey @WalletAcquisitionRule wallet.id NftAcquisitionRule_Acquire with ctrl = owner, nft = newNft
 
-template NftAcquisitionRule
+template WalletAcquisitionRule
   with
-    party : Party
-    operator : Party
+    wallet : Wallet
     ctrls : Set Party
     observers : Set Party
   where
-    signatory operator, party
+    signatory wallet.provider
     observer ctrls, observers
 
-    key (operator, party) : (Party, Party)
-    maintainer key._1
+    key wallet.id : WalletId
+    maintainer key.signatories
 
-    nonconsuming choice NftAcquisitionRule_Acquire : ContractId Nft
+    nonconsuming choice NftAcquisitionRule_Acquire : (ContractId Nft, ContractId WalletControlledTransferRule)
       with
         ctrl : Party
-        nftId : NftId
-      controller ctrl, nftId.signatories
+        nft : Nft
+      controller ctrl, nft.id.signatories
       do
         assertMsg "Controller must be authorized to send nft" $ ctrl `Set.member` ctrls
-        (nftCid, nft) <- fetchByKey @Nft nftId
-        nft.operator === operator
-        archive nftCid
-        create nft with
-          id.signatories = Set.insert party nft.id.signatories
-          owner = party
+        nft.wallet === wallet
+        nftCid <- create nft
+        transferRuleCid <- create WalletControlledTransferRule with
+          tokenId = nft.id
+          owner = wallet.owner
+          observers
+        pure (nftCid, transferRuleCid)
