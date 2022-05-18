@@ -11,20 +11,20 @@ data TokenId = TokenId
   with
     signatories : Set Party
     value : Text
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 data WalletId = WalletId
   with
     signatories : Set Party
     value : Text
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 data Wallet = Wallet
   with
     id : WalletId
     provider : Party
     owner : Party
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 template Nft
   with
