@@ -37,64 +37,60 @@ template Nft
     name : Text
     description : Text
   where
-    signatory id.signatories
+    signatory id.signatories, wallet.id.signatories
     observer observers
 
     key id : TokenId
     maintainer key.signatories
 
--- template NftCreatorRole
---   with
---     creator : Party
---     operator : Party
---     observers : Set Party
---   where
---     signatory operator
---     observer creator, observers
+template FreeTransferRule
+  with
+    tokenId : TokenId
+    wallet : Wallet
+    observers : Set Party
+  where
+    signatory tokenId.signatories, wallet.id.signatories
+    observer wallet.owner, observers
 
---     key (operator, creator) : (Party, Party)
---     maintainer key._1
+    key tokenId : TokenId
+    maintainer key.signatories
 
--- template NftMintRequest
---   with
---     nft : Nft
---   where
---     signatory Set.delete nft.operator nft.id.signatories
---     observer nft.operator
-
---     choice NftMintRequest_Mint : ContractId Nft
---       controller nft.operator
---       do
---         fetchByKey @NftCreatorRole (nft.operator, nft.creator)
---         create nft
+    choice FreeTransferRule_Transfer : (ContractId Nft, ContractId FreeTransferRule)
+      with
+        recipientWallet : Wallet
+      controller wallet.owner
+      do
+        (nftCid, nft) <- fetchByKey @Nft tokenId
+        nft.wallet === wallet
+        archive nftCid
+        newNftCid <- create nft with wallet = recipientWallet
+        newTransferRuleCid <- create this with wallet = recipientWallet
+        pure (newNftCid, newTransferRuleCid)
 
 template WalletControlledTransferRule
   with
     tokenId : TokenId
-    owner : Party
+    wallet : Wallet
     observers : Set Party
   where
-    signatory tokenId.signatories
+    signatory tokenId.signatories, wallet.id.signatories
     observer observers
 
     key tokenId : TokenId
     maintainer key.signatories
 
-    choice NftTransferRule_Transfer : (ContractId Nft, ContractId WalletControlledTransferRule)
+    choice WalletControlledTransferRule_Transfer : (ContractId Nft, ContractId WalletControlledTransferRule)
       with
-        wallet : Wallet
-      controller owner
+        recipientWallet : Wallet
+      controller wallet.owner
       do
         (nftCid, nft) <- fetchByKey @Nft tokenId
-        nft.wallet.owner === owner
+        nft.wallet === wallet
         archive nftCid
-        let newSignatories = Set.difference
-              (Set.union wallet.id.signatories nft.id.signatories)
-              (Set.difference nft.wallet.id.signatories wallet.id.signatories)
-        let newNft = nft with
-              id.signatories = newSignatories
-              wallet
-        exerciseByKey @WalletAcquisitionRule wallet.id NftAcquisitionRule_Acquire with ctrl = owner, nft = newNft
+        let newNft = nft with wallet = recipientWallet
+        newNftCid <- exerciseByKey @WalletAcquisitionRule wallet.id WalletAcquisitionRule_Acquire with ctrl = wallet.owner, nft = newNft
+        newTransferRuleCid <- create this with wallet = recipientWallet
+        pure (newNftCid, newTransferRuleCid)
 
 template WalletAcquisitionRule
   with
@@ -102,13 +98,13 @@ template WalletAcquisitionRule
     ctrls : Set Party
     observers : Set Party
   where
-    signatory wallet.provider
-    observer ctrls, observers
+    signatory wallet.id.signatories
+    observer wallet.owner, ctrls, observers
 
     key wallet.id : WalletId
     maintainer key.signatories
 
-    nonconsuming choice NftAcquisitionRule_Acquire : (ContractId Nft, ContractId WalletControlledTransferRule)
+    nonconsuming choice WalletAcquisitionRule_Acquire : ContractId Nft
       with
         ctrl : Party
         nft : Nft
@@ -116,9 +112,4 @@ template WalletAcquisitionRule
       do
         assertMsg "Controller must be authorized to send nft" $ ctrl `Set.member` ctrls
         nft.wallet === wallet
-        nftCid <- create nft
-        transferRuleCid <- create WalletControlledTransferRule with
-          tokenId = nft.id
-          owner = wallet.owner
-          observers
-        pure (nftCid, transferRuleCid)
+        create nft
