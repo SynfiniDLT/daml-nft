@@ -24,7 +24,7 @@ data Wallet = Wallet
     id : WalletId
     provider : Party
     owner : Party
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq)
 
 template Nft
   with
