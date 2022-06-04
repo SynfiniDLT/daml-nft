@@ -1,0 +1,47 @@
+module Synfini.Nft.Trade (
+  NftDvp(..)
+) where
+
+import DA.Either
+import DA.Finance.Types
+import DA.Finance.Trade.Dvp
+import DA.Set (Set)
+import Synfini.Nft
+
+template NftDvp
+  with
+    masterAgreement : MasterAgreement
+    tradeId : Id
+    buyer : Party
+    status : SettlementStatus -- ^ The settlement status of the trade.
+    settlementDate : Optional Date
+    deliveries : [Either TokenId Asset]
+    payments : [Either TokenId Asset]
+    observers : Set Party
+  where
+    signatory masterAgreement.id.signatories
+    observer observers
+
+    ensure isValidNftDvp this
+
+    key (masterAgreement.id, tradeId) : (Id, Id)
+    maintainer key._1.signatories
+
+isValidNftDvp : NftDvp -> Bool
+isValidNftDvp nftDvp =
+  let (paymentTokens, paymentAssets) = partitionEithers nftDvp.payments
+      (deliveryTokens, deliveryAssets) = partitionEithers nftDvp.deliveries
+  in
+  let dvp = Dvp with
+        masterAgreement = nftDvp.masterAgreement
+        tradeId = nftDvp.tradeId
+        buyer = nftDvp.buyer
+        status = nftDvp.status
+        settlementDate = nftDvp.settlementDate
+        deliveries = deliveryAssets
+        payments = paymentAssets
+        observers = nftDvp.observers
+  in
+  ensure dvp &&
+    all (`notElem` deliveryTokens) paymentTokens &&
+    all (`notElem` paymentTokens) deliveryTokens

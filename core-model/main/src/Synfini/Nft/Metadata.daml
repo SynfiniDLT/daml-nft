@@ -1,0 +1,46 @@
+module Synfini.Nft.Metadata where
+
+import Synfini.Nft
+import DA.Set (Set)
+
+-- | Optional storage of the URI of a particular NFT, which points to a JSON file conforming to a metadata
+-- schema. The alternative to this is to store the NFT's  metadata on-ledger.
+template NftUri
+  with
+    nftId : TokenId
+    uri : Text -- ^ Unique Uniform Resource Identifier (URI) for this NFT.
+    observers : Set Party
+  where
+    signatory nftId.signatories
+    observer observers
+
+    key nftId : TokenId
+    maintainer key.signatories
+
+-- | Optional on-ledger storage of basic information about a particular NFT. Alternatively this can be stored off-ledger.
+template NftSummary
+  with
+    nftId : TokenId
+    name : Text
+    description : Text
+    observers : Set Party
+  where
+    signatory nftId.signatories
+    observer observers
+
+    key nftId : TokenId
+    maintainer key.signatories
+
+-- | Optional on-ledger storage for metadata specifc to an NFT for image ownership. Alternatively this can be stored
+-- off-ledger.
+template NftImage
+  with
+    nftId : TokenId
+    image : Text -- ^ The URI of the image, which must point to a resource with mime type image/*.
+    observers : Set Party
+  where
+    signatory nftId.signatories
+    observer observers
+
+    key nftId : TokenId
+    maintainer key.signatories

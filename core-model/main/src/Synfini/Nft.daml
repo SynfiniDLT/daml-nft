@@ -28,21 +28,20 @@ data Wallet = Wallet
 
 template Nft
   with
-    id : TokenId
+    tokenId : TokenId
     issuer : Party
     wallet : Wallet
     observers : Set Party
-    url : Optional Text
-    -- Are these needed to be stored on ledger?
-    name : Text
-    description : Text
   where
-    signatory id.signatories, wallet.id.signatories
+    signatory tokenId.signatories, wallet.id.signatories
     observer observers
 
-    key id : TokenId
+    key tokenId : TokenId
     maintainer key.signatories
 
+-- | Rule to allow the owner of a particular NFT to transfer it to any other wallet, provided the recipient wallet ID's
+-- signatories are any subset of the NFT contract's signatories. For example, to transfer to another wallet belonging
+-- to the same owner or with the same provider, or if the wallet ID's signatories is empty.
 template FreeTransferRule
   with
     tokenId : TokenId
@@ -67,6 +66,8 @@ template FreeTransferRule
         newTransferRuleCid <- create this with wallet = recipientWallet
         pure (newNftCid, newTransferRuleCid)
 
+-- | Rule to allow the owner of a particular NFT to transfer it, but only if the recipient is willing to accept it
+-- via a 'WalletAcquisitionRule'.
 template WalletControlledTransferRule
   with
     tokenId : TokenId
@@ -92,10 +93,12 @@ template WalletControlledTransferRule
         newTransferRuleCid <- create this with wallet = recipientWallet
         pure (newNftCid, newTransferRuleCid)
 
+-- | Rule to allow a wallet to receive NFTs from other parties. This may be a long-lived contract or may be created and
+-- archived within a single transaction, such as in a "propose-accept" workflow.
 template WalletAcquisitionRule
   with
     wallet : Wallet
-    ctrls : Set Party
+    ctrls : Set Party -- ^ Parites permitted to send NFTs to this wallet.
     observers : Set Party
   where
     signatory wallet.id.signatories
@@ -108,7 +111,7 @@ template WalletAcquisitionRule
       with
         ctrl : Party
         nft : Nft
-      controller ctrl, nft.id.signatories
+      controller ctrl, nft.tokenId.signatories
       do
         assertMsg "Controller must be authorized to send nft" $ ctrl `Set.member` ctrls
         nft.wallet === wallet
