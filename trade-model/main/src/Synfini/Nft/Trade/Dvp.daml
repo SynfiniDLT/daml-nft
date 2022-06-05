@@ -1,7 +1,7 @@
 -- Copyright (c) 2022 ASX Operations Pty Ltd. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module Synfini.Nft.Trade (
+module Synfini.Nft.Trade.Dvp (
   NftDvp(..)
 ) where
 
@@ -18,8 +18,8 @@ template NftDvp
     buyer : Party
     status : SettlementStatus -- ^ The settlement status of the trade.
     settlementDate : Optional Date
-    deliveries : [Either TokenId Asset]
-    payments : [Either TokenId Asset]
+    deliveries : [Either (CollectionId, TokenId) Asset]
+    payments : [Either (CollectionId, TokenId) Asset]
     observers : Set Party
   where
     signatory masterAgreement.id.signatories

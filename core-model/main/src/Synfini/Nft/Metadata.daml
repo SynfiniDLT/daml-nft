@@ -6,44 +6,60 @@ module Synfini.Nft.Metadata where
 import Synfini.Nft
 import DA.Set (Set)
 
+template NftCollectionSummary
+  with
+    collectionId : CollectionId
+    name : Text
+    symbol : Text
+    observers : Set Party
+  where
+    signatory collectionId.signatories
+    observer observers
+
+    key collectionId : CollectionId
+    maintainer key.signatories
+
 -- | Optional storage of the URI of a particular NFT, which points to a JSON file conforming to a metadata
 -- schema. The alternative to this is to store the NFT's  metadata on-ledger.
 template NftUri
   with
-    nftId : TokenId
+    collectionId : CollectionId
+    tokenId : TokenId
     uri : Text -- ^ Unique Uniform Resource Identifier (URI) for this NFT.
     observers : Set Party
   where
-    signatory nftId.signatories
+    signatory tokenId.signatories
     observer observers
 
-    key nftId : TokenId
-    maintainer key.signatories
+    key (collectionId, tokenId) : (CollectionId, TokenId)
+    maintainer key._1.signatories
 
 -- | Optional on-ledger storage of basic information about a particular NFT. Alternatively this can be stored off-ledger.
 template NftSummary
   with
-    nftId : TokenId
+    collectionId : CollectionId
+    tokenId : TokenId
     name : Text
     description : Text
     observers : Set Party
   where
-    signatory nftId.signatories
+    signatory tokenId.signatories
     observer observers
 
-    key nftId : TokenId
-    maintainer key.signatories
+    key (collectionId, tokenId) : (CollectionId, TokenId)
+    maintainer key._1.signatories
 
--- | Optional on-ledger storage for metadata specifc to an NFT for image ownership. Alternatively this can be stored
+-- | Optional on-ledger storage for metadata applicable only to NFTs for image ownership. Alternatively this can be stored
 -- off-ledger.
 template NftImage
   with
-    nftId : TokenId
+    collectionId : CollectionId
+    tokenId : TokenId
     image : Text -- ^ The URI of the image, which must point to a resource with mime type image/*.
     observers : Set Party
   where
-    signatory nftId.signatories
+    signatory tokenId.signatories
     observer observers
 
-    key nftId : TokenId
-    maintainer key.signatories
+    key (collectionId, tokenId) : (CollectionId, TokenId)
+    maintainer key._1.signatories

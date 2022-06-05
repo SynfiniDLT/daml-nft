@@ -7,6 +7,12 @@ import DA.Assert ((===))
 import DA.Set (Set)
 import qualified DA.Set as Set
 
+data CollectionId = CollectionId
+  with
+    signatories : Set Party
+    value : Text
+  deriving (Show, Eq, Ord)
+
 data TokenId = TokenId
   with
     signatories : Set Party
@@ -28,38 +34,40 @@ data Wallet = Wallet
 
 template Nft
   with
+    collectionId : CollectionId
     tokenId : TokenId
     issuer : Party
     wallet : Wallet
     observers : Set Party
   where
-    signatory tokenId.signatories, wallet.id.signatories
+    signatory collectionId.signatories, tokenId.signatories, wallet.id.signatories
     observer observers
 
-    key tokenId : TokenId
-    maintainer key.signatories
+    key (collectionId, tokenId) : (CollectionId, TokenId)
+    maintainer key._1.signatories
 
 -- | Rule to allow the owner of a particular NFT to transfer it to any other wallet, provided the recipient wallet ID's
 -- signatories are any subset of the NFT contract's signatories. For example, to transfer to another wallet belonging
 -- to the same owner or with the same provider, or if the wallet ID's signatories is empty.
 template FreeTransferRule
   with
+    collectionId : CollectionId
     tokenId : TokenId
     wallet : Wallet
     observers : Set Party
   where
-    signatory tokenId.signatories, wallet.id.signatories
+    signatory collectionId.signatories, tokenId.signatories, wallet.id.signatories
     observer wallet.owner, observers
 
-    key tokenId : TokenId
-    maintainer key.signatories
+    key (collectionId, tokenId) : (CollectionId, TokenId)
+    maintainer key._1.signatories
 
     choice FreeTransferRule_Transfer : (ContractId Nft, ContractId FreeTransferRule)
       with
         recipientWallet : Wallet
       controller wallet.owner
       do
-        (nftCid, nft) <- fetchByKey @Nft tokenId
+        (nftCid, nft) <- fetchByKey @Nft (collectionId, tokenId)
         nft.wallet === wallet
         archive nftCid
         newNftCid <- create nft with wallet = recipientWallet
@@ -70,22 +78,23 @@ template FreeTransferRule
 -- via a 'WalletAcquisitionRule'.
 template WalletControlledTransferRule
   with
+    collectionId : CollectionId
     tokenId : TokenId
     wallet : Wallet
     observers : Set Party
   where
-    signatory tokenId.signatories, wallet.id.signatories
+    signatory collectionId.signatories, tokenId.signatories, wallet.id.signatories
     observer observers
 
-    key tokenId : TokenId
-    maintainer key.signatories
+    key (collectionId, tokenId) : (CollectionId, TokenId)
+    maintainer key._1.signatories
 
     choice WalletControlledTransferRule_Transfer : (ContractId Nft, ContractId WalletControlledTransferRule)
       with
         recipientWallet : Wallet
       controller wallet.owner
       do
-        (nftCid, nft) <- fetchByKey @Nft tokenId
+        (nftCid, nft) <- fetchByKey @Nft (collectionId, tokenId)
         nft.wallet === wallet
         archive nftCid
         let newNft = nft with wallet = recipientWallet

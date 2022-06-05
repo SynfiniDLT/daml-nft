@@ -1,0 +1,42 @@
+-- Copyright (c) 2022 ASX Operations Pty Ltd. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Synfini.Nft.Trade.SettlementInstruction where
+
+import DA.Finance.Types
+import DA.Set (Set)
+import Synfini.Nft
+
+data TransferMethod = FreeTransfer | WalletControlled deriving (Show, Eq)
+
+data NftSettlementInstruction_Process_Result =
+  FreeTransferProcessResult with
+    nftCid : ContractId Nft
+    freeTransferRuleCid : ContractId FreeTransferRule |
+  WalletControlledProcessResult with
+    nftCid : ContractId Nft
+    walletControlledTransferRuleCid : ContractId WalletControlledTransferRule
+    walletAcquisitionRuleCid : ContractId WalletAcquisitionRule
+  deriving (Show, Eq)
+
+template NftSettlementInstruction
+  with
+    masterAgreement : MasterAgreement
+      -- ^ The master agreement to which the settlement applies.
+    tradeId : Id
+    tokenId : TokenId
+    sender : Wallet
+    recipient : Wallet
+    method : TransferMethod
+    observers : Set Party
+  where
+    signatory masterAgreement.id.signatories, sender.owner
+    observer masterAgreement.party1, masterAgreement.party2, observers
+
+    key (masterAgreement.id, tradeId, tokenId) : (Id, Id, TokenId)
+    maintainer key._1.signatories
+
+    choice NftSettlementInstruction_Process : NftSettlementInstruction_Process_Result
+      controller masterAgreement.id.signatories
+      do
+        pure undefined
