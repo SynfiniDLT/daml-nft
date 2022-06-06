@@ -28,7 +28,7 @@ template NftUri
     uri : Text -- ^ Unique Uniform Resource Identifier (URI) for this NFT.
     observers : Set Party
   where
-    signatory tokenId.signatories
+    signatory collectionId.signatories, tokenId.signatories
     observer observers
 
     key (collectionId, tokenId) : (CollectionId, TokenId)
@@ -43,7 +43,7 @@ template NftSummary
     description : Text
     observers : Set Party
   where
-    signatory tokenId.signatories
+    signatory collectionId.signatories, tokenId.signatories
     observer observers
 
     key (collectionId, tokenId) : (CollectionId, TokenId)
@@ -58,7 +58,7 @@ template NftImage
     image : Text -- ^ The URI of the image, which must point to a resource with mime type image/*.
     observers : Set Party
   where
-    signatory tokenId.signatories
+    signatory collectionId.signatories, tokenId.signatories
     observer observers
 
     key (collectionId, tokenId) : (CollectionId, TokenId)
