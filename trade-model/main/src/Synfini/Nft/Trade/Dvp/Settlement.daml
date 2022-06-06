@@ -3,12 +3,11 @@
 
 module Synfini.Nft.Trade.Dvp.Settlement where
 
-import DA.Either
+import DA.Assert ((===))
 import DA.Finance.Asset
 import DA.Finance.Types
-import DA.Finance.Trade.Dvp
+import DA.Finance.Trade.Dvp.Settlement
 import DA.Finance.Trade.SettlementInstruction
-import DA.Set (Set)
 import Synfini.Nft
 import Synfini.Nft.Trade.Dvp
 import Synfini.Nft.Trade.SettlementInstruction
@@ -16,7 +15,10 @@ import Synfini.Nft.Trade.SettlementInstruction
 data NftDvpSettlementRule_Process_Result = NftDvpSettlementRule_Process_Result
   with
     nftDvpCid : ContractId NftDvp
-    paymentCids : [Either NftSettlementInstruction_Process_Result [ContractId AssetDeposit]]
+    paymentDepositCids : [[ContractId AssetDeposit]]
+    deliveryDepositCids : [[ContractId AssetDeposit]]
+    paymentNftCids : [NftSettlementInstruction_Process_Result]
+    deliveryNftCids : [NftSettlementInstruction_Process_Result]
   deriving (Show, Eq)
 
 template NftDvpSettlementRule
@@ -34,13 +36,45 @@ template NftDvpSettlementRule
       with
         nftDvpCid : ContractId NftDvp
           -- ^ Dvp trade to be settled
-        paymentInstructionCids : [Either (ContractId NftSettlementInstruction) (ContractId SettlementInstruction)]
+        paymentInstructionCids : [ContractId SettlementInstruction]
           -- ^ Fully allocated settlement instruction for each payment asset.
-        deliveryInstructionCids : [Either (ContractId NftSettlementInstruction) (ContractId SettlementInstruction)]
+        deliveryInstructionCids : [ContractId SettlementInstruction]
           -- ^ Fully allocated settlement instruction for each delivery asset.
+        nftPaymentInstructionCids : [ContractId NftSettlementInstruction]
+        nftDeliveryInstructionCids : [ContractId NftSettlementInstruction]
         ctrl : Party
           -- ^ masterAgreement.party1 or masterAgreement.party2
       controller ctrl
       do
-        assert (ctrl == masterAgreement.party1 || ctrl == masterAgreement.party2)
-        pure undefined
+        nftDvp <- fetch nftDvpCid
+
+        dvpCid <- create nftDvp.dvp
+        fungibleSettlementRuleCid <- create DvpSettlementRule with masterAgreement
+        fungibleSettlemementResult <- exercise fungibleSettlementRuleCid DvpSettlement_Process with
+          dvpCid
+          paymentInstructionCids
+          deliveryInstructionCids
+          ctrl
+        archive fungibleSettlementRuleCid
+        finalDvp <- fetch fungibleSettlemementResult.dvpCid
+        archive fungibleSettlemementResult.dvpCid
+        archive nftDvpCid
+        findlNftDvpCid <- create nftDvp with dvp = finalDvp
+
+        paymentNftCids <- mapA (doNftSettlement masterAgreement) (zip nftDvp.paymentNfts nftPaymentInstructionCids)
+        deliveryNftCids <- mapA (doNftSettlement masterAgreement) (zip nftDvp.deliveryNfts nftDeliveryInstructionCids)
+
+        pure NftDvpSettlementRule_Process_Result with
+          nftDvpCid = findlNftDvpCid
+          paymentDepositCids = fungibleSettlemementResult.paymentDepositCids
+          deliveryDepositCids = fungibleSettlemementResult.deliveryDepositCids
+          paymentNftCids
+          deliveryNftCids
+
+doNftSettlement : MasterAgreement -> ((CollectionId, TokenId), ContractId NftSettlementInstruction) -> Update NftSettlementInstruction_Process_Result
+doNftSettlement masterAgreement ((collectionId, tokenId), settlementCid) = do
+  settlement <- fetch settlementCid
+  settlement.masterAgreement === masterAgreement
+  settlement.collectionId === collectionId
+  settlement.tokenId === tokenId
+  exercise settlementCid NftSettlementInstruction_Process

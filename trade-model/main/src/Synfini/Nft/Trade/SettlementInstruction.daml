@@ -24,6 +24,7 @@ template NftSettlementInstruction
     masterAgreement : MasterAgreement
       -- ^ The master agreement to which the settlement applies.
     tradeId : Id
+    collectionId : CollectionId
     tokenId : TokenId
     sender : Wallet
     recipient : Wallet
@@ -33,7 +34,7 @@ template NftSettlementInstruction
     signatory masterAgreement.id.signatories, sender.owner
     observer masterAgreement.party1, masterAgreement.party2, observers
 
-    key (masterAgreement.id, tradeId, tokenId) : (Id, Id, TokenId)
+    key (masterAgreement.id, tradeId, collectionId, tokenId) : (Id, Id, CollectionId, TokenId)
     maintainer key._1.signatories
 
     choice NftSettlementInstruction_Process : NftSettlementInstruction_Process_Result

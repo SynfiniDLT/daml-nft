@@ -5,46 +5,30 @@ module Synfini.Nft.Trade.Dvp (
   NftDvp(..)
 ) where
 
-import DA.Either
 import DA.Finance.Types
 import DA.Finance.Trade.Dvp
-import DA.Set (Set)
+import qualified DA.Set as Set
 import Synfini.Nft
 
 template NftDvp
   with
-    masterAgreement : MasterAgreement
-    tradeId : Id
-    buyer : Party
-    status : SettlementStatus -- ^ The settlement status of the trade.
-    settlementDate : Optional Date
-    deliveries : [Either (CollectionId, TokenId) Asset]
-    payments : [Either (CollectionId, TokenId) Asset]
-    observers : Set Party
+    dvp : Dvp
+    paymentNfts : [(CollectionId, TokenId)]
+    deliveryNfts : [(CollectionId, TokenId)]
   where
-    signatory masterAgreement.id.signatories
-    observer observers
+    signatory dvp.masterAgreement.id.signatories
+    observer dvp.observers
 
     ensure isValidNftDvp this
 
-    key (masterAgreement.id, tradeId) : (Id, Id)
+    key (key dvp) : (Id, Id)
     maintainer key._1.signatories
 
 isValidNftDvp : NftDvp -> Bool
 isValidNftDvp nftDvp =
-  let (paymentTokens, paymentAssets) = partitionEithers nftDvp.payments
-      (deliveryTokens, deliveryAssets) = partitionEithers nftDvp.deliveries
+  let paymentTokens = Set.fromList nftDvp.paymentNfts
+      deliveryTokens = Set.fromList nftDvp.deliveryNfts
   in
-  let dvp = Dvp with
-        masterAgreement = nftDvp.masterAgreement
-        tradeId = nftDvp.tradeId
-        buyer = nftDvp.buyer
-        status = nftDvp.status
-        settlementDate = nftDvp.settlementDate
-        deliveries = deliveryAssets
-        payments = paymentAssets
-        observers = nftDvp.observers
-  in
-  ensure dvp &&
-    all (`notElem` deliveryTokens) paymentTokens &&
-    all (`notElem` paymentTokens) deliveryTokens
+  ensure nftDvp.dvp &&
+    all (\paymentToken -> not $ paymentToken `Set.member` deliveryTokens) nftDvp.paymentNfts &&
+    all (\deliveryToken -> not $ deliveryToken `Set.member` paymentTokens) nftDvp.deliveryNfts
