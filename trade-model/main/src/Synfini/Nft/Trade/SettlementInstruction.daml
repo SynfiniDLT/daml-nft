@@ -16,7 +16,6 @@ data NftSettlementInstruction_Process_Result =
   WalletControlledProcessResult with
     nftCid : ContractId Nft
     walletControlledTransferRuleCid : ContractId WalletControlledTransferRule
-    walletAcquisitionRuleCid : ContractId WalletAcquisitionRule
   deriving (Show, Eq)
 
 template NftSettlementInstruction
@@ -26,12 +25,12 @@ template NftSettlementInstruction
     tradeId : Id
     collectionId : CollectionId
     tokenId : TokenId
-    sender : Wallet
-    recipient : Wallet
+    senderWallet : Wallet
+    recipientWallet : Wallet
     method : TransferMethod
     observers : Set Party
   where
-    signatory masterAgreement.id.signatories, sender.owner
+    signatory masterAgreement.id.signatories, senderWallet.owner
     observer masterAgreement.party1, masterAgreement.party2, observers
 
     key (masterAgreement.id, tradeId, collectionId, tokenId) : (Id, Id, CollectionId, TokenId)
@@ -40,4 +39,13 @@ template NftSettlementInstruction
     choice NftSettlementInstruction_Process : NftSettlementInstruction_Process_Result
       controller masterAgreement.id.signatories
       do
-        pure undefined
+        case method of
+          FreeTransfer -> do
+            (nftCid, freeTransferRuleCid) <- exerciseByKey @FreeTransferRule (collectionId, tokenId) FreeTransferRule_Transfer with recipientWallet
+            pure FreeTransferProcessResult with nftCid, freeTransferRuleCid
+          WalletControlled -> do
+            (nftCid, walletControlledTransferRuleCid) <- exerciseByKey
+              @WalletControlledTransferRule
+              (collectionId, tokenId)
+              WalletControlledTransferRule_Transfer with recipientWallet
+            pure WalletControlledProcessResult with nftCid, walletControlledTransferRuleCid
