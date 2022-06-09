@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 sdk-version: 1.17.1
-name: nft-core
+name: nft-core-model
 version: 0.1.0
 source: src
 dependencies:

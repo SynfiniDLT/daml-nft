@@ -1,0 +1,93 @@
+module Synfini.Nft.Trade.Dvp.Commission where
+
+import DA.Assert
+import DA.Finance.Asset
+import DA.Finance.Trade.Dvp
+import DA.Finance.Trade.SettlementInstruction
+import DA.Finance.Types
+import DA.Functor (void)
+import DA.List
+import qualified DA.Set as Set
+import Synfini.Nft
+import Synfini.Nft.Trade.Dvp
+import Synfini.Nft.Trade.Dvp.Settlement
+import Synfini.Nft.Trade.SettlementInstruction
+
+data Royalty_Sell_Result = Royalty_Sell_Result
+  with
+    dvpCid : ContractId Dvp
+    deliveryCid : ContractId Nft
+    paymentCids : [ContractId AssetDeposit]
+    royalityPaymentCids : [ContractId AssetDeposit]
+    royaltyRuleCid : ContractId RoyaltyRule
+  deriving (Show, Eq)
+
+template RoyaltyRule
+  with
+    collectionId : CollectionId
+    tokenId : TokenId
+    wallet : Wallet
+    commission : Decimal
+  where
+    signatory collectionId.signatories, tokenId.signatories, wallet.id.signatories
+
+    ensure commission >= 0.0
+
+    key (collectionId, tokenId) : (CollectionId, TokenId)
+    maintainer key._1.signatories
+
+    choice RoyaltyRule_Sell : Royalty_Sell_Result
+      with
+        nftDvpCid : ContractId NftDvp
+          -- ^ Dvp trade to be settled
+        paymentInstructionCid : ContractId SettlementInstruction
+        deliveryInstructionCid : ContractId NftSettlementInstruction
+        royaltyPaymentInstructionCid : ContractId SettlementInstruction
+      controller wallet.owner
+      do
+        nftDvp <- fetch nftDvpCid
+        length nftDvp.dvp.payments === 1
+        length nftDvp.dvp.deliveries === 0
+        length nftDvp.paymentNfts === 0
+        length nftDvp.deliveryNfts === 1
+
+        let (deliveryCollectionId, deliveryTokenId) = head nftDvp.deliveryNfts
+        deliveryCollectionId === collectionId
+        deliveryTokenId === tokenId
+
+        royaltyPaymentInstruction <- fetch royaltyPaymentInstructionCid
+        --royaltyPaymentInstruction
+        nftDvp.masterAgreement.buyer =/= wallet.owner
+
+        deliveryInstruction <- fetch deliveryInstructionCid
+        case deliveryInstruction.method of
+          FreeTransfer ->
+            void $ create FreeTransferRule with
+              collectionId
+              tokenId
+              wallet
+              observers = Set.empty
+          WalletControlled ->
+            void $ create WalletControlledTransferRule with
+              collectionId
+              tokenId
+              wallet
+              observers = Set.empty
+
+        settlementResult <- exerciseByKey
+          @NftDvpSettlementRule
+          nftDvp.masterAgreement.id
+          NftDvpSettlementRule_Process with
+            nftDvpCid
+            paymentInstructionCids = [paymentInstructionCid]
+            deliveryInstructionCids = []
+            nftPaymentInstructionCids = []
+            nftDeliveryInstructionCids = [deliveryInstructionCid]
+            ctrl = wallet.owner
+
+        case head settlementResult.deliveryNftCids of
+          FreeTransferProcessResult _ transferRuleCid -> archive transferRuleCid
+          WalletControlledProcessResult _ transferRuleCid -> archive transferRuleCid
+
+        pure
+
