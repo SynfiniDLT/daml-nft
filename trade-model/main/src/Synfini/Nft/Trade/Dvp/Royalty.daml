@@ -1,4 +1,4 @@
-module Synfini.Nft.Trade.Dvp.Commission where
+module Synfini.Nft.Trade.Dvp.Royalty where
 
 import DA.Assert
 import DA.Finance.Asset
@@ -85,6 +85,7 @@ template RoyaltyRule
             nftDeliveryInstructionCids = [deliveryInstructionCid]
             ctrl = wallet.owner
 
+        -- Archive the transfer rules to prevent further
         case head settlementResult.deliveryNftCids of
           FreeTransferProcessResult _ transferRuleCid -> archive transferRuleCid
           WalletControlledProcessResult _ transferRuleCid -> archive transferRuleCid
