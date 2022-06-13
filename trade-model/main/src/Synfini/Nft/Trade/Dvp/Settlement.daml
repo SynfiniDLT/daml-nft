@@ -17,8 +17,8 @@ data NftDvpSettlementRule_Process_Result = NftDvpSettlementRule_Process_Result
     nftDvpCid : ContractId NftDvp
     paymentDepositCids : [[ContractId AssetDeposit]]
     deliveryDepositCids : [[ContractId AssetDeposit]]
-    paymentNftCids : [NftSettlementInstruction_Process_Result]
-    deliveryNftCids : [NftSettlementInstruction_Process_Result]
+    paymentNftCids : [(ContractId Nft, ContractId NftTransferRule)]
+    deliveryNftCids : [(ContractId Nft, ContractId NftTransferRule)]
   deriving (Show, Eq)
 
 template NftDvpSettlementRule
@@ -49,30 +49,36 @@ template NftDvpSettlementRule
         nftDvp <- fetch nftDvpCid
 
         dvpCid <- create nftDvp.dvp
-        fungibleSettlementRuleCid <- create DvpSettlementRule with masterAgreement
-        fungibleSettlemementResult <- exercise fungibleSettlementRuleCid DvpSettlement_Process with
+        fungibleSettlemementResult <- exerciseByKey @DvpSettlementRule masterAgreement.id DvpSettlement_Process with
           dvpCid
           paymentInstructionCids
           deliveryInstructionCids
           ctrl
-        archive fungibleSettlementRuleCid
         finalDvp <- fetch fungibleSettlemementResult.dvpCid
         archive fungibleSettlemementResult.dvpCid
         archive nftDvpCid
-        findlNftDvpCid <- create nftDvp with dvp = finalDvp
+        finalNftDvpCid <- create nftDvp with dvp = finalDvp
 
         let seller = if nftDvp.dvp.buyer == masterAgreement.party1 then masterAgreement.party2 else masterAgreement.party1
-        paymentNftCids <- mapA (doNftSettlement masterAgreement nftDvp.dvp.buyer seller) (zip nftDvp.paymentNfts nftPaymentInstructionCids)
-        deliveryNftCids <- mapA (doNftSettlement masterAgreement seller nftDvp.dvp.buyer) (zip nftDvp.deliveryNfts nftDeliveryInstructionCids)
+        paymentNftCids <- mapA
+          (doNftSettlement masterAgreement nftDvp.dvp.buyer seller)
+          (zip nftDvp.paymentNfts nftPaymentInstructionCids)
+        deliveryNftCids <- mapA
+          (doNftSettlement masterAgreement seller nftDvp.dvp.buyer)
+          (zip nftDvp.deliveryNfts nftDeliveryInstructionCids)
 
         pure NftDvpSettlementRule_Process_Result with
-          nftDvpCid = findlNftDvpCid
+          nftDvpCid = finalNftDvpCid
           paymentDepositCids = fungibleSettlemementResult.paymentDepositCids
           deliveryDepositCids = fungibleSettlemementResult.deliveryDepositCids
           paymentNftCids
           deliveryNftCids
 
-doNftSettlement : MasterAgreement -> Party -> Party -> ((CollectionId, TokenId), ContractId NftSettlementInstruction) -> Update NftSettlementInstruction_Process_Result
+doNftSettlement : MasterAgreement ->
+                  Party ->
+                  Party ->
+                  ((CollectionId, TokenId), ContractId NftSettlementInstruction) ->
+                  Update (ContractId Nft, ContractId NftTransferRule)
 doNftSettlement masterAgreement sender recipient ((collectionId, tokenId), settlementCid) = do
   settlement <- fetch settlementCid
   settlement.masterAgreement === masterAgreement

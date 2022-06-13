@@ -3,20 +3,10 @@
 
 module Synfini.Nft.Trade.SettlementInstruction where
 
+import DA.Assert ((===))
 import DA.Finance.Types
 import DA.Set (Set)
 import Synfini.Nft
-
-data TransferMethod = FreeTransfer | WalletControlled deriving (Show, Eq)
-
-data NftSettlementInstruction_Process_Result =
-  FreeTransferProcessResult with
-    nftCid : ContractId Nft
-    freeTransferRuleCid : ContractId FreeTransferRule |
-  WalletControlledProcessResult with
-    nftCid : ContractId Nft
-    walletControlledTransferRuleCid : ContractId WalletControlledTransferRule
-  deriving (Show, Eq)
 
 template NftSettlementInstruction
   with
@@ -27,7 +17,6 @@ template NftSettlementInstruction
     tokenId : TokenId
     senderWallet : Wallet
     recipientWallet : Wallet
-    method : TransferMethod
     observers : Set Party
   where
     signatory masterAgreement.id.signatories, senderWallet.owner
@@ -36,16 +25,12 @@ template NftSettlementInstruction
     key (masterAgreement.id, tradeId, collectionId, tokenId) : (Id, Id, CollectionId, TokenId)
     maintainer key._1.signatories
 
-    choice NftSettlementInstruction_Process : NftSettlementInstruction_Process_Result
+    choice NftSettlementInstruction_Process : (ContractId Nft, ContractId NftTransferRule)
       controller masterAgreement.id.signatories
       do
-        case method of
-          FreeTransfer -> do
-            (nftCid, freeTransferRuleCid) <- exerciseByKey @FreeTransferRule (collectionId, tokenId) FreeTransferRule_Transfer with recipientWallet
-            pure FreeTransferProcessResult with nftCid, freeTransferRuleCid
-          WalletControlled -> do
-            (nftCid, walletControlledTransferRuleCid) <- exerciseByKey
-              @WalletControlledTransferRule
-              (collectionId, tokenId)
-              WalletControlledTransferRule_Transfer with recipientWallet
-            pure WalletControlledProcessResult with nftCid, walletControlledTransferRuleCid
+        (_, nft) <- fetchByKey @Nft (collectionId, tokenId)
+        nft.wallet === senderWallet
+        exerciseByKey
+          @NftTransferRule
+          (collectionId, tokenId)
+          NftTransferRule_Transfer with recipientWallet

@@ -4,6 +4,7 @@
 module Synfini.Nft where
 
 import DA.Assert ((===))
+import qualified DA.Optional as O
 import DA.Set (Set)
 import qualified DA.Set as Set
 
@@ -46,37 +47,9 @@ template Nft
     key (collectionId, tokenId) : (CollectionId, TokenId)
     maintainer key._1.signatories
 
--- | Rule to allow the owner of a particular NFT to transfer it to any other wallet, provided the recipient wallet ID's
--- signatories are any subset of the NFT contract's signatories. For example, to transfer to another wallet belonging
--- to the same owner or with the same provider, or if the wallet ID's signatories is empty.
-template FreeTransferRule
-  with
-    collectionId : CollectionId
-    tokenId : TokenId
-    wallet : Wallet
-    observers : Set Party
-  where
-    signatory collectionId.signatories, tokenId.signatories, wallet.id.signatories
-    observer wallet.owner, observers
-
-    key (collectionId, tokenId) : (CollectionId, TokenId)
-    maintainer key._1.signatories
-
-    choice FreeTransferRule_Transfer : (ContractId Nft, ContractId FreeTransferRule)
-      with
-        recipientWallet : Wallet
-      controller wallet.owner
-      do
-        (nftCid, nft) <- fetchByKey @Nft (collectionId, tokenId)
-        nft.wallet === wallet
-        archive nftCid
-        newNftCid <- create nft with wallet = recipientWallet
-        newTransferRuleCid <- create this with wallet = recipientWallet
-        pure (newNftCid, newTransferRuleCid)
-
 -- | Rule to allow the owner of a particular NFT to transfer it, but only if the recipient is willing to accept it
--- via a 'WalletAcquisitionRule'.
-template WalletControlledTransferRule
+-- via a 'NftAcquisitionRule'.
+template NftTransferRule
   with
     collectionId : CollectionId
     tokenId : TokenId
@@ -89,7 +62,7 @@ template WalletControlledTransferRule
     key (collectionId, tokenId) : (CollectionId, TokenId)
     maintainer key._1.signatories
 
-    choice WalletControlledTransferRule_Transfer : (ContractId Nft, ContractId WalletControlledTransferRule)
+    choice NftTransferRule_Transfer : (ContractId Nft, ContractId NftTransferRule)
       with
         recipientWallet : Wallet
       controller wallet.owner
@@ -98,30 +71,33 @@ template WalletControlledTransferRule
         nft.wallet === wallet
         archive nftCid
         let newNft = nft with wallet = recipientWallet
-        newNftCid <- exerciseByKey @WalletAcquisitionRule wallet.id WalletAcquisitionRule_Acquire with ctrl = wallet.owner, nft = newNft
-        newTransferRuleCid <- create this with wallet = recipientWallet
-        pure (newNftCid, newTransferRuleCid)
+        newNftCid <- exerciseByKey @NftAcquisitionRule wallet.id NftAcquisitionRule_Acquire with ctrl = wallet.owner, nft = newNft
+        newNftTransferRuleCid <- create this with wallet = recipientWallet
+        pure (newNftCid, newNftTransferRuleCid)
 
 -- | Rule to allow a wallet to receive NFTs from other parties. This may be a long-lived contract or may be created and
 -- archived within a single transaction, such as in a "propose-accept" workflow.
-template WalletAcquisitionRule
+template NftAcquisitionRule
   with
     wallet : Wallet
-    ctrls : Set Party -- ^ Parites permitted to send NFTs to this wallet.
+    senderWhiteList : Optional (Set Party) -- ^ If provided, contains all parites permitted to send NFTs to this wallet.
+    -- No restrictions on transfers apply if white list is not provided.
     observers : Set Party
   where
     signatory wallet.id.signatories
-    observer wallet.owner, ctrls, observers
+    observer wallet.owner, O.fromOptional Set.empty senderWhiteList, observers
 
     key wallet.id : WalletId
     maintainer key.signatories
 
-    nonconsuming choice WalletAcquisitionRule_Acquire : ContractId Nft
+    nonconsuming choice NftAcquisitionRule_Acquire : ContractId Nft
       with
         ctrl : Party
         nft : Nft
       controller ctrl, nft.tokenId.signatories
       do
-        assertMsg "Controller must be authorized to send nft" $ ctrl `Set.member` ctrls
+        assertMsg
+          "Controller must be authorized to send nft"
+          (O.optional True (Set.member ctrl) senderWhiteList)
         nft.wallet === wallet
         create nft
