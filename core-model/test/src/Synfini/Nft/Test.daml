@@ -76,7 +76,63 @@ test_NftAcquisitionRule_properties = withParties $ \parties -> do
   Set.fromList (observer acquisitionRule) === Set.fromList [parties.bob, parties.charlie, parties.david, parties.eve]
   key acquisitionRule === walletId
 
-  -- Only owner can transfer
-  -- Requires a wallet acquisition rule
-  -- White listing
--- test_NftTransferRule_transfer
+test_NftAcquisitionRule_Acquire : Script ()
+test_NftAcquisitionRule_Acquire = withParties $ \parties -> do
+  let collectionId = CollectionId with
+        value = ""
+        signatories = Set.singleton parties.alice
+  let tokenId = TokenId with
+        value = ""
+        signatories = Set.singleton parties.bob
+  let walletId = WalletId with
+        value = ""
+        signatories = Set.singleton parties.charlie
+  let wallet = Wallet with
+        id = walletId
+        owner = parties.david
+        provider = parties.eve
+  let acquisitionRule = NftAcquisitionRule with
+        wallet
+        senderWhiteList = Some $ Set.singleton parties.frank
+        observers = Set.fromList (allParties parties)
+  let acquisitionRuleNoWhiteList = acquisitionRule with
+        wallet.id.value = "open wallet"
+        senderWhiteList = None
+  let nft = Nft with
+        collectionId
+        tokenId
+        wallet
+        issuer = parties.david
+        observers = Set.empty
+  let nftWrongWallet = nft with wallet.id.value = "other wallet"
+
+  acquisitionRuleCid <- submit parties.charlie do createCmd acquisitionRule
+  acquisitionRuleNoWhiteListCid <- submit parties.charlie do createCmd acquisitionRuleNoWhiteList
+
+  -- Not whitelisted
+  submitMultiMustFail [parties.alice, parties.bob, parties.grace] [] do
+    exerciseCmd acquisitionRuleCid NftAcquisitionRule_Acquire with
+      nft
+      ctrl = parties.grace
+
+  -- Wrong wallet
+  submitMultiMustFail [parties.alice, parties.bob, parties.frank] [] do
+    exerciseCmd acquisitionRuleCid NftAcquisitionRule_Acquire with
+      nft = nftWrongWallet
+      ctrl = parties.frank
+
+  nftCid <- submitMulti [parties.alice, parties.bob, parties.frank] [] do
+    exerciseCmd acquisitionRuleCid NftAcquisitionRule_Acquire with
+      nft
+      ctrl = parties.frank
+  activeNfts <- query @Nft parties.david
+  activeNfts === [(nftCid, nft)]
+
+  -- Works for a wallet without a whitelist
+  submitMulti [parties.alice, parties.bob, parties.grace] [] do
+    exerciseCmd acquisitionRuleNoWhiteListCid NftAcquisitionRule_Acquire with
+      nft = nft with
+        tokenId.value = "other nft"
+        wallet = acquisitionRuleNoWhiteList.wallet
+      ctrl = parties.grace
+  pure ()

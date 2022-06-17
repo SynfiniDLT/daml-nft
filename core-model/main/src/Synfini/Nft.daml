@@ -120,7 +120,7 @@ template NftAcquisitionRule
       with
         ctrl : Party -- ^ Choice controller.
         nft : Nft -- ^ Nft to be provided.
-      controller ctrl, nft.tokenId.signatories
+      controller ctrl, nft.collectionId.signatories, nft.tokenId.signatories
       do
         assertMsg
           "Controller must be authorized to send nft"
