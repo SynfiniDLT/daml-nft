@@ -1,0 +1,7 @@
+-- Copyright (c) 2022 ASX Operations Pty Ltd. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Synfini.Nft.Metadata.Test where
+
+import Synfini.Nft
+import DA.Set (Set)

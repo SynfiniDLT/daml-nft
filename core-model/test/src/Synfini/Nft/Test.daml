@@ -1,0 +1,56 @@
+-- Copyright (c) 2022 ASX Operations Pty Ltd. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Synfini.Nft.Test where
+
+import Daml.Script
+import DA.Assert
+import qualified DA.Set as Set
+import Synfini.Nft
+import Synfini.Nft.TestUtils
+
+test_Nft_signatories : Script ()
+test_Nft_signatories = withParties $ \parties -> do
+  let collectionId = CollectionId with
+        value = ""
+        signatories = Set.singleton parties.alice
+  let tokenId = TokenId with
+        value = ""
+        signatories = Set.singleton parties.bob
+  let walletId = WalletId with
+        value = ""
+        signatories = Set.singleton parties.charlie
+  let wallet = Wallet with
+        id = walletId
+        owner = parties.david
+        provider = parties.david
+  let nft = Nft with
+        collectionId
+        tokenId
+        issuer = parties.david
+        wallet
+        observers = Set.singleton parties.david
+  Set.fromList (signatory nft) === Set.fromList [parties.alice, parties.bob, parties.charlie]
+
+test_Nft_observers : Script ()
+test_Nft_observers = withParties $ \parties -> do
+  let collectionId = CollectionId with
+        value = ""
+        signatories = Set.singleton parties.alice
+  let tokenId = TokenId with
+        value = ""
+        signatories = Set.singleton parties.alice
+  let walletId = WalletId with
+        value = ""
+        signatories = Set.singleton parties.alice
+  let wallet = Wallet with
+        id = walletId
+        owner = parties.bob
+        provider = parties.charlie
+  let nft = Nft with
+        collectionId
+        tokenId
+        issuer = parties.david
+        wallet
+        observers = Set.singleton parties.eve
+  Set.fromList (observer nft) === Set.fromList [parties.bob, parties.charlie, parties.david, parties.eve]

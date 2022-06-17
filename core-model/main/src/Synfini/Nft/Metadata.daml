@@ -6,12 +6,13 @@ module Synfini.Nft.Metadata where
 import Synfini.Nft
 import DA.Set (Set)
 
+-- | Summary metadata for an Nft collection.
 template NftCollectionSummary
   with
-    collectionId : CollectionId
-    name : Text
-    symbol : Text
-    observers : Set Party
+    collectionId : CollectionId -- ^ Unique identifier of the Nft collection.
+    name : Text -- ^ A descriptive name for this Nft collection.
+    symbol : Text -- ^ An abbreviated name for this Nft collection.
+    observers : Set Party -- ^ Contract observers.
   where
     signatory collectionId.signatories
     observer observers
@@ -23,28 +24,30 @@ template NftCollectionSummary
 -- schema. The alternative to this is to store the NFT's  metadata on-ledger.
 template NftUri
   with
-    collectionId : CollectionId
-    tokenId : TokenId
+    collectionId : CollectionId -- ^ Unique identifier of the collection which the Nft is part of.
+    tokenId : TokenId -- ^ Unique identifier of the Nft within the collection.
+    issuer : Party -- ^ Nft issuer. 
     uri : Text -- ^ Unique Uniform Resource Identifier (URI) for this NFT.
-    observers : Set Party
+    observers : Set Party -- ^ Contract observers.
   where
     signatory collectionId.signatories, tokenId.signatories
-    observer observers
+    observer issuer, observers
 
     key (collectionId, tokenId) : (CollectionId, TokenId)
     maintainer key._1.signatories
 
--- | Optional on-ledger storage of basic information about a particular NFT. Alternatively this can be stored off-ledger.
+-- | Optional on-ledger storage of basic metadata about a particular NFT. Alternatively this can be stored off-ledger.
 template NftSummary
   with
-    collectionId : CollectionId
-    tokenId : TokenId
-    name : Text
-    description : Text
-    observers : Set Party
+    collectionId : CollectionId -- ^ Unique identifier of the collection which the Nft is part of.
+    tokenId : TokenId -- ^ Unique identifier of the Nft within the collection.
+    issuer : Party -- ^ Nft issuer. 
+    name : Text -- ^ Identifies the asset which this Nft represents.
+    description : Text -- ^ Description of this Nft asset.
+    observers : Set Party -- ^ Contract observers.
   where
     signatory collectionId.signatories, tokenId.signatories
-    observer observers
+    observer issuer, observers
 
     key (collectionId, tokenId) : (CollectionId, TokenId)
     maintainer key._1.signatories
@@ -53,13 +56,14 @@ template NftSummary
 -- off-ledger.
 template NftImage
   with
-    collectionId : CollectionId
-    tokenId : TokenId
+    collectionId : CollectionId -- ^ Unique identifier of the collection which the Nft is part of.
+    tokenId : TokenId -- ^ Unique identifier of the Nft within the collection.
+    issuer : Party -- ^ Nft issuer. 
     image : Text -- ^ The URI of the image, which must point to a resource with mime type image/*.
-    observers : Set Party
+    observers : Set Party -- ^ Contract observers.
   where
     signatory collectionId.signatories, tokenId.signatories
-    observer observers
+    observer issuer, observers
 
     key (collectionId, tokenId) : (CollectionId, TokenId)
     maintainer key._1.signatories
