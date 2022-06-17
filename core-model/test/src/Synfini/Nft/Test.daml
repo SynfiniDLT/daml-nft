@@ -9,8 +9,8 @@ import qualified DA.Set as Set
 import Synfini.Nft
 import Synfini.Nft.TestUtils
 
-test_Nft_signatories : Script ()
-test_Nft_signatories = withParties $ \parties -> do
+test_Nft_properties : Script ()
+test_Nft_properties = withParties $ \parties -> do
   let collectionId = CollectionId with
         value = ""
         signatories = Set.singleton parties.alice
@@ -23,23 +23,44 @@ test_Nft_signatories = withParties $ \parties -> do
   let wallet = Wallet with
         id = walletId
         owner = parties.david
-        provider = parties.david
+        provider = parties.eve
   let nft = Nft with
         collectionId
         tokenId
-        issuer = parties.david
+        issuer = parties.frank
         wallet
-        observers = Set.singleton parties.david
+        observers = Set.singleton parties.grace
   Set.fromList (signatory nft) === Set.fromList [parties.alice, parties.bob, parties.charlie]
+  Set.fromList (observer nft) === Set.fromList [parties.david, parties.eve, parties.frank, parties.grace]
+  key nft === (collectionId, tokenId)
 
-test_Nft_observers : Script ()
-test_Nft_observers = withParties $ \parties -> do
+test_NftTransferRule_properties : Script ()
+test_NftTransferRule_properties = withParties $ \parties -> do
   let collectionId = CollectionId with
         value = ""
         signatories = Set.singleton parties.alice
   let tokenId = TokenId with
         value = ""
-        signatories = Set.singleton parties.alice
+        signatories = Set.singleton parties.bob
+  let walletId = WalletId with
+        value = ""
+        signatories = Set.singleton parties.charlie
+  let wallet = Wallet with
+        id = walletId
+        owner = parties.david
+        provider = parties.eve
+  let transferRule = NftTransferRule with
+        collectionId
+        tokenId
+        issuer = parties.frank
+        wallet
+        observers = Set.singleton parties.grace
+  Set.fromList (signatory transferRule) === Set.fromList [parties.alice, parties.bob, parties.charlie]
+  Set.fromList (observer transferRule) === Set.fromList [parties.david, parties.eve, parties.frank, parties.grace]
+  key transferRule === (collectionId, tokenId)
+
+test_NftAcquisitionRule_properties : Script ()
+test_NftAcquisitionRule_properties = withParties $ \parties -> do
   let walletId = WalletId with
         value = ""
         signatories = Set.singleton parties.alice
@@ -47,10 +68,15 @@ test_Nft_observers = withParties $ \parties -> do
         id = walletId
         owner = parties.bob
         provider = parties.charlie
-  let nft = Nft with
-        collectionId
-        tokenId
-        issuer = parties.david
+  let acquisitionRule = NftAcquisitionRule with
         wallet
+        senderWhiteList = Some $ Set.singleton parties.david
         observers = Set.singleton parties.eve
-  Set.fromList (observer nft) === Set.fromList [parties.bob, parties.charlie, parties.david, parties.eve]
+  Set.fromList (signatory acquisitionRule) === Set.singleton parties.alice
+  Set.fromList (observer acquisitionRule) === Set.fromList [parties.bob, parties.charlie, parties.david, parties.eve]
+  key acquisitionRule === walletId
+
+  -- Only owner can transfer
+  -- Requires a wallet acquisition rule
+  -- White listing
+-- test_NftTransferRule_transfer

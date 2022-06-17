@@ -21,7 +21,7 @@ template NftCollectionSummary
     maintainer key.signatories
 
 -- | Optional storage of the URI of a particular NFT, which points to a JSON file conforming to a metadata
--- schema. The alternative to this is to store the NFT's  metadata on-ledger.
+-- schema. The alternative to this is to store the NFT's metadata on-ledger.
 template NftUri
   with
     collectionId : CollectionId -- ^ Unique identifier of the collection which the Nft is part of.

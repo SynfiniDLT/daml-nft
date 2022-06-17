@@ -9,7 +9,8 @@ data Parties = Parties
     charlie : Party
     david : Party
     eve : Party
-    fred : Party
+    frank : Party
+    grace : Party
   deriving (Show, Eq)
 
 allocateParties : Script Parties
@@ -19,7 +20,8 @@ allocateParties = Parties <$>
   allocateParty "Charlie" <*>
   allocateParty "David" <*>
   allocateParty "Eve" <*>
-  allocateParty "Fred"
+  allocateParty "Frank" <*>
+  allocateParty "Grace"
 
 withParties : (Parties -> Script ()) -> Script ()
 withParties test = do
@@ -27,4 +29,12 @@ withParties test = do
   test parties
 
 allParties : Parties -> [Party]
-allParties parties = [parties.alice, parties.bob, parties.charlie, parties.david, parties.eve, parties.fred]
+allParties parties = [
+    parties.alice,
+    parties.bob,
+    parties.charlie,
+    parties.david,
+    parties.eve,
+    parties.frank,
+    parties.grace
+  ]

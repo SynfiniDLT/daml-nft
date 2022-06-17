@@ -56,6 +56,13 @@ template Nft
     key (collectionId, tokenId) : (CollectionId, TokenId)
     maintainer key._1.signatories
 
+    choice Nft_SetObservers : ContractId Nft
+      with
+        newObservers : Set Party
+      controller wallet.owner
+      do
+        create this with observers = newObservers
+
 -- | Rule to allow the owner of a particular NFT to transfer it, but only if the recipient is willing to accept it
 -- via an 'NftAcquisitionRule'.
 template NftTransferRule
@@ -71,6 +78,13 @@ template NftTransferRule
 
     key (collectionId, tokenId) : (CollectionId, TokenId)
     maintainer key._1.signatories
+
+    choice NftTransferRule_SetObservers : ContractId NftTransferRule
+      with
+        newObservers : Set Party
+      controller wallet.owner
+      do
+        create this with observers = newObservers
 
     -- | Transfer the Nft to another wallet.
     choice NftTransferRule_Transfer : (ContractId Nft, ContractId NftTransferRule)
@@ -113,3 +127,10 @@ template NftAcquisitionRule
           (O.optional True (Set.member ctrl) senderWhiteList)
         nft.wallet === wallet
         create nft
+
+    choice NftAcquisitionRule_SetObservers : ContractId NftAcquisitionRule
+      with
+        newObservers : Set Party
+      controller wallet.owner
+      do
+        create this with observers = newObservers
