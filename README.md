@@ -11,9 +11,9 @@ developers writing custom Daml code from scratch for an NFT project, this librar
 application. By having a common standard library for NFTs, developers can develop interoperable smart contracts, opening
 new opportunities for trading, lending, liquidity and other applications.
 
-## Core design
+## Signatories and identifiers
 
-The templates are structued using flexible signatories. This is designed to allow developers to choose signatories most
+The templates are structured using flexible signatories. This is designed to allow developers to choose signatories most
 appropriate to a particular usecase. The signatories are attached to each identifier/key type. NFTs are grouped into
 collections, which have the following identifier:
 
@@ -26,7 +26,7 @@ data CollectionId = CollectionId
   deriving (Show, Eq, Ord)
 ```
 
-Within each NFT collection, each token is uniquely identified by its token ID:
+Within each collection, each NFT is uniquely identified by its token ID:
 
 ```haskell
 -- ^ Unique identifier of a particular Nft within a collection.
@@ -38,7 +38,7 @@ data TokenId = TokenId
   deriving (Show, Eq, Ord)
 ```
 
-A party may have one or more wallets in which they hold NFTs. Each wallet has unique wallet ID, an owner and provider:
+A party may have one or more wallets in which they hold NFTs. Each wallet has a unique wallet ID, an owner and provider:
 
 ```haskell
 -- ^ Unique identifier of an Nft wallet.
@@ -59,7 +59,22 @@ data Wallet = Wallet
   deriving (Show, Eq)
 ```
 
-The `Nft` contract assigns ownership of an NFT to a particular wallet. It is unqiuely identified by its contract key -
-the combination of collection ID and token ID - making it impossible to create a duplicate NFT. The contract must be
-jointly signed by the collection ID, token ID and wallet ID signatories. The workflow for acquiring all of these
-signatures is application-specific.
+## Using the templates
+
+The `Nft` contract assigns ownership of an NFT to a particular wallet. It is uniquely identified by its contract key -
+the combination of its collection ID and token ID - making it impossible to create a duplicate NFT. The contract is
+jointly signed by the collection ID, token ID and wallet ID signatories. Any metadata associated with the NFT, such as
+a descriptive name or link to metadata hosted off-ledger, is stored in separate contracts. This allows for different
+choices of whether to host metadata on or off-ledger, or to define customized metadata templates. Basic metadata
+templates are available in the `Synfini.Nft.Metadata` module.
+
+The process of gathering the signatures of the `Nft` contract is usecase-specific. For example, to implement a patent
+register, each `Nft` contract must be signed by the Patent Office, who is responsible for approving any patent
+application. An application would be sent to the Patent Office by the creation of a contract signed by the inventor 
+(Alice in the example below). The contract would provide the Patent Office a choice to grant the patent, which if
+exercised, creates an `Nft` contract along with any additional metadata contracts required.
+
+![plot](./diagrams/PatentApproval.png)
+
+In this example, the `NftUri` template from this library is used to store the URI of a JSON document containing the
+patent metadata.
