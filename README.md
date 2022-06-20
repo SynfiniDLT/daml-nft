@@ -122,4 +122,4 @@ following workflow would take place:
 ![plot](./diagrams/NftTransfer.png)
 
 The `Transfer` choice  archives the existing `Nft` before exercising the `Acquire` choice on Bob's
-`NftAcquisitionRule`, resulting in the creation of the new `Nft` in Bob's wallet.
+`NftAcquisitionRule`, resulting in the creation of the `Nft` in Bob's wallet.
