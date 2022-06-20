@@ -106,7 +106,7 @@ patent metadata.
 
 The authorization of the wallet ID signatories is required in order to create an `Nft` contract. These signatories will
 likely change when ownership is transferred to a different wallet. Therefore we need to be granted authority from the
-signatories of the receiving wallet when a transfer needs to be made. To solve this problem, a `WalletAcquisitionRule`
+signatories of the receiving wallet when a transfer needs to be made. To solve this problem, an `NftAcquisitionRule`
 contract can be created. This allows for a particular wallet to acquire NFTs from other parties, by allowing them to
 exercise the `Acquire` choice, resulting in the creation of the NFT in the wallet.
 
