@@ -84,7 +84,7 @@ data Wallet = Wallet
 
 ## Using the templates
 
-The `Nft` contract assigns ownership of an NFT to a particular wallet. It is uniquely identified by its contract key -
+An `Nft` contract assigns ownership of an NFT to a particular wallet. It is uniquely identified by its contract key -
 the combination of its collection ID and token ID - making it impossible to create a duplicate NFT. The contract is
 jointly signed by the collection ID, token ID and wallet ID signatories. Any metadata associated with the NFT, such as
 a descriptive name or link to metadata hosted off-ledger, is stored in separate contracts. This allows for different
@@ -122,4 +122,4 @@ following workflow would take place:
 ![plot](./diagrams/NftTransfer.png)
 
 The `Transfer` choice  archives the existing `Nft` before exercising the `Acquire` choice on Bob's
-`WalletAcquisitionRule`, resulting in the creation of the new `Nft` in Bob's wallet.
+`NftAcquisitionRule`, resulting in the creation of the new `Nft` in Bob's wallet.
