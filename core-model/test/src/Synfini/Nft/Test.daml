@@ -5,6 +5,7 @@ module Synfini.Nft.Test where
 
 import Daml.Script
 import DA.Assert
+import qualified DA.Map as Map
 import qualified DA.Set as Set
 import Synfini.Nft
 import Synfini.Nft.TestUtils
@@ -104,7 +105,11 @@ test_NftAcquisitionRule_Acquire = withParties $ \parties -> do
         wallet
         issuer = parties.david
         observers = Set.empty
-  let nftWrongWallet = nft with wallet.id.value = "other wallet"
+  let nftWrongWallet = nft with
+        wallet.id.value = "other wallet"
+  let nftOpenWallet = nft with
+        tokenId.value = "other nft"
+        wallet = acquisitionRuleNoWhiteList.wallet
 
   acquisitionRuleCid <- submit parties.charlie do createCmd acquisitionRule
   acquisitionRuleNoWhiteListCid <- submit parties.charlie do createCmd acquisitionRuleNoWhiteList
@@ -125,14 +130,13 @@ test_NftAcquisitionRule_Acquire = withParties $ \parties -> do
     exerciseCmd acquisitionRuleCid NftAcquisitionRule_Acquire with
       nft
       ctrl = parties.frank
-  activeNfts <- query @Nft parties.david
+  activeNfts <- query @Nft nft.wallet.owner
   activeNfts === [(nftCid, nft)]
 
   -- Works for a wallet without a whitelist
-  submitMulti [parties.alice, parties.bob, parties.grace] [] do
+  nftOpenWalletCid <- submitMulti [parties.alice, parties.bob, parties.grace] [] do
     exerciseCmd acquisitionRuleNoWhiteListCid NftAcquisitionRule_Acquire with
-      nft = nft with
-        tokenId.value = "other nft"
-        wallet = acquisitionRuleNoWhiteList.wallet
+      nft = nftOpenWallet
       ctrl = parties.grace
-  pure ()
+  finalActiveNfts <- query @Nft nftOpenWallet.wallet.owner
+  Map.fromList finalActiveNfts === Map.fromList [(nftCid, nft), (nftOpenWalletCid, nftOpenWallet)]
