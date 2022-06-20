@@ -11,6 +11,29 @@ developers writing custom Daml code from scratch for an NFT project, this librar
 application. By having a common standard library for NFTs, developers can develop interoperable smart contracts, opening
 new opportunities for trading, lending, liquidity and other applications.
 
+## Quick start
+
+Due to Daml lacking a package management system, the recommended way to use this project is to copy the code as a git
+submodule before building the code:
+
+```bash
+git submodule add https://github.com/SynfiniDLT/daml-nft
+daml build --project-root daml-nft/core-model/main
+```
+
+Then, in your own `daml.yaml` file, add a dependency on the DAR file compiled in the previous step:
+
+```yaml
+dependencies:
+- ./your/path/to/daml-nft/core-model/main/.daml/dist/nft-core-model-0.1.0.dar
+```
+
+Now you should be able to import the core templates:
+
+```haskell
+import Synfini.Nft
+```
+
 ## Signatories and identifiers
 
 The templates are structured using flexible signatories. This is designed to allow developers to choose signatories most
@@ -78,3 +101,25 @@ exercised, creates an `Nft` contract along with any additional metadata contract
 
 In this example, the `NftUri` template from this library is used to store the URI of a JSON document containing the
 patent metadata.
+
+## Transferring NFTs
+
+The authorization of the wallet ID signatories is required in order to create an `Nft` contract. These signatories will
+likely change when ownership is transferred to a different wallet. Therefore we need to be granted authority from the
+signatories of the receiving wallet when a transfer needs to be made. To solve this problem, a `WalletAcquisitionRule`
+contract can be created. This allows for a particular wallet to acquire NFTs from other parties, by allowing them to
+exercise the `Acquire` choice, resulting in the creation of the NFT in the wallet.
+
+The `Nft` template is delierately designed so that it does not provide the owner a choice to transfer the NFT. Rather,
+a separate template, `NftTransferRule`, must be instantiated in order to enable transfers. This is to cater for
+usecases where additional checks are required before transfer, such as payment of royalties or taxes, KYC checks or
+regulatory approval. In such examples the `NftTransferRule` can still be used, but must be created and archived within
+a transaction.
+
+Continuing from the previous example, if Alice now wishes to transfer the ownership of the patent to Bob, then the
+following workflow would take place:
+
+![plot](./diagrams/NftTransfer.png)
+
+The `Transfer` choice  archives the existing `Nft` before exercising the `Acquire` choice on Bob's
+`WalletAcquisitionRule`, resulting in the creation of the new `Nft` in Bob's wallet.
