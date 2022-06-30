@@ -110,7 +110,7 @@ signatories of the receiving wallet when a transfer needs to be made. To solve t
 contract can be created. This allows for a particular wallet to acquire NFTs from other parties, by allowing them to
 exercise the `Acquire` choice, resulting in the creation of the NFT in the wallet.
 
-The `Nft` template is delierately designed so that it does not provide the owner a choice to transfer the NFT. Rather,
+The `Nft` template is deliberately designed so that it does not provide the owner a choice to transfer the NFT. Rather,
 a separate template, `NftTransferRule`, must be instantiated in order to enable transfers. This is to cater for
 usecases where additional checks are required before transfer, such as payment of royalties or taxes, KYC checks or
 regulatory approval. In such examples the `NftTransferRule` can still be used, but must be created and archived within
