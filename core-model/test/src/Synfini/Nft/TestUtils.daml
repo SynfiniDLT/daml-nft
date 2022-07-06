@@ -1,0 +1,40 @@
+module Synfini.Nft.TestUtils where
+
+import Daml.Script
+
+data Parties = Parties
+  with
+    alice : Party
+    bob : Party
+    charlie : Party
+    david : Party
+    eve : Party
+    frank : Party
+    grace : Party
+  deriving (Show, Eq)
+
+allocateParties : Script Parties
+allocateParties = Parties <$>
+  allocateParty "Alice" <*>
+  allocateParty "Bob" <*>
+  allocateParty "Charlie" <*>
+  allocateParty "David" <*>
+  allocateParty "Eve" <*>
+  allocateParty "Frank" <*>
+  allocateParty "Grace"
+
+withParties : (Parties -> Script ()) -> Script ()
+withParties test = do
+  parties <- allocateParties
+  test parties
+
+allParties : Parties -> [Party]
+allParties parties = [
+    parties.alice,
+    parties.bob,
+    parties.charlie,
+    parties.david,
+    parties.eve,
+    parties.frank,
+    parties.grace
+  ]
