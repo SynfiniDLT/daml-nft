@@ -5,11 +5,9 @@
 
 ## Introduction
 
-This project contains a library for non-fungible tokens (NFTs) in the the Digital Asset Modelling Language
-([Daml](https://daml.com)). It is highly generic and applicable to any type of non-fungible asset. Rather than
-developers writing custom Daml code from scratch for an NFT project, this library can be used as a basis to build an
-application. By having a common standard library for NFTs, developers can develop interoperable smart contracts, opening
-new opportunities for trading, lending, liquidity and other applications.
+This project contains an example of how a library for non-fungible tokens (NFTs) can be developed in the Digital
+Asset Modelling Language ([Daml](https://daml.com)). It is designed to be highly generic and applicable to any type
+of non-fungible asset. It is intended as an educational example rather than a production-ready library.
 
 ## Quick start
 
@@ -123,3 +121,9 @@ following workflow would take place:
 
 The `Transfer` choice  archives the existing `Nft` before exercising the `Acquire` choice on Bob's
 `NftAcquisitionRule`, resulting in the creation of the `Nft` in Bob's wallet.
+
+## See also
+
+For other examples of modeling NFTs in Daml you can also refer to the
+[Daml Finance library](https://docs.daml.com/daml-finance/index.html) which contains implementations of both
+non-fungible and fungible tokens.
